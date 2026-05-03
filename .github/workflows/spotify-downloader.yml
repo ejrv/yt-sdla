@@ -1,4 +1,4 @@
-name: Search & Download from Spotify (maxQ)
+name: Download from Spotify
 
 on:
   workflow_dispatch:
@@ -31,13 +31,18 @@ jobs:
           python << EOF
           import requests
           import json
-          import os
           import urllib.parse
 
           song_name = "${SONG_NAME}"
           
           
-          downloader_search_url = f"https://api.spotifydown.com/search?q={urllib.parse.quote(song_name)}"
+         
+          search_url = f"https://api.spotify.com/v1/search?q={urllib.parse.quote(song_name)}&type=track&limit=1"
+          
+          
+         
+          
+          downloader_search_url = f"https://api.vevioz.com/search?q={urllib.parse.quote(song_name)}"
           
           try:
               response = requests.get(downloader_search_url)
@@ -49,7 +54,8 @@ jobs:
                   
                   if track_id:
                       
-                      download_url = f"https://api.spotifydown.com/download/{track_id}/mp3"
+                      
+                      download_url = f"https://api.vevioz.com/download/{track_id}/mp3"
                       
                       file_response = requests.get(download_url, stream=True)
                       
