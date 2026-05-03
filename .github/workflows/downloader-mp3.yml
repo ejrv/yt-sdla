@@ -15,52 +15,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install yt-dlp and ffmpeg
+      - name: Install Dependencies
         run: |
-          pip install yt-dlp
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg curl jq
 
-      - name: Download Best Audio
+      - name: Download Audio
         run: |
           VIDEO_ID="${{ inputs.video_id }}"
           YOUTUBE_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
-          
-          echo "Downloading best quality audio..."
-          
-         
-           yt-dlp -x \
-                 --audio-format best \
-                 --audio-quality 0 \
-                 --extractor-args "youtube:player_client=android_vr" \
-                 -o "temp_audio.%(ext)s" \
-                 "${YOUTUBE_URL}"
-
-          
-          AUDIO_FILE=$(ls temp_audio.* 2>/dev/null | head -n 1)
-          
-          if [ -z "$AUDIO_FILE" ]; then
-            echo "Error: Audio download failed."
+          RESPONSE=$(curl -s -X POST "https://api.cobalt.tools/api/json" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -d "{\"url\":\"${YOUTUBE_URL}\",\"isAudioOnly\":true,\"audioFormat\":\"mp3\",\"noRedirection\":true}")
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.url')
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ]; then
+            echo "Error: Failed to get download link."
+            echo "$RESPONSE"
             exit 1
           fi
-
-          
-          ffmpeg -i "$AUDIO_FILE" -b:a 320k -y "audio.mp3"
-          
-          
-          rm "$AUDIO_FILE"
-          
-          ls -lh audio.mp3
+          curl -L -o "audio.mp3" "$DOWNLOAD_URL"
+          if [ ! -f "audio.mp3" ]; then
+            echo "Error: Download failed."
+            exit 1
+          fi
 
       - name: Commit and Push Audio
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add audio.mp3
-          git commit -m "Added real MP3 audio for ID: ${{ inputs.video_id }}" || true
+          git commit -m "Added audio via Cobalt for ID: ${{ inputs.video_id }}" || true
           git push
