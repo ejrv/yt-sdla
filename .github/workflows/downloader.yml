@@ -1,4 +1,4 @@
-name: Download by ID (max: 720p)
+name: Download by ID, Max-720p
 
 on:
   workflow_dispatch:
