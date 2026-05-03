@@ -1,11 +1,12 @@
-name: download (max 720p)
+name: Download by ID (max: 720p)
 
 on:
   workflow_dispatch:
     inputs:
-      youtube_url:
-        description: 'link?'
+      video_id:
+        description: 'ID?'
         required: true
+        type: string
 
 jobs:
   download:
@@ -14,19 +15,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: get yt-dlp+ffmpeg
+      - name: Get yt-dlp + ffmpeg
         run: |
           pip install yt-dlp
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: get-vid+dl
+      - name: Download Video
         run: |
+          
+          VIDEO_ID="${{ inputs.video_id }}"
+          
+          
+          YOUTUBE_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
+          
+          echo "Downloading video with ID: ${VIDEO_ID}"
+          
           
           yt-dlp -f "bestvideo[height<=720]+bestaudio" \
                  --merge-output-format mp4 \
                  -o "video.mp4" \
-                 "${{ inputs.youtube_url }}"
+                 "${YOUTUBE_URL}"
 
           
           if [ ! -f "video.mp4" ]; then
@@ -36,10 +45,10 @@ jobs:
           
           ls -lh video.mp4
 
-      - name: commit+pushVid
+      - name: Commit and Push Video
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add video.mp4
-          git commit -m "Added video (Max 720p) from ${{ inputs.youtube_url }}" || true
+          git commit -m "Updated video with ID: ${{ inputs.video_id }}" || true
           git push
