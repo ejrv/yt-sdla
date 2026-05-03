@@ -24,7 +24,7 @@ jobs:
         run: |
           VIDEO_ID="${{ inputs.video_id }}"
           INFO=$(curl -s "https://yewtu.be/api/v1/videos/${VIDEO_ID}")
-          AUDIO_URL=$(echo "$INFO" | jq -r '.adaptiveFormats[] | select(.mimeType == "audio/mp4") | .url' | head -n 1)
+          AUDIO_URL=$(echo "$INFO" | jq -r '.adaptiveFormats[] | select(.mimeType | contains("audio")) | .url' | head -n 1)
           if [ -z "$AUDIO_URL" ] || [ "$AUDIO_URL" == "null" ]; then
             echo "Error: Could not find audio stream."
             exit 1
