@@ -15,20 +15,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install yt-dlp and jq
+      - name: Install yt-dlp
         run: |
           pip install yt-dlp
-          sudo apt-get update
-          sudo apt-get install -y jq
 
       - name: Search and Extract Video Info
         run: |
           QUERY="${{ inputs.search_query }}"
           
-      
+         
           yt-dlp --flat-playlist \
-                 --print "%(id)s %(title)s" \
-                 --max-downloaded 10 \
+                 --print "%(id)s - %(title)s" \
                  "ytsearch10:${QUERY}" > video_list.txt
 
           
