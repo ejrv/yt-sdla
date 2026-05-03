@@ -1,42 +1,107 @@
-name: Download MP3 by ID (maxQ)
+name: Search & Download MP3 from YouTube (maxQ)
 
 on:
   workflow_dispatch:
     inputs:
-      video_id:
-        description: 'ID?'
+      song_name:
+        description: 'What are you looking for?'
         required: true
         type: string
 
 jobs:
-  download_audio:
+  download:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
       - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y yt-dlp ffmpeg
+          pip install pytube
 
-      - name: Download Audio
+      - name: Search and Download
         run: |
-          VIDEO_ID="${{ inputs.video_id }}"
-          yt-dlp -x --audio-format best --audio-quality 0 -o "temp_audio.%(ext)s" "https://www.youtube.com/watch?v=${VIDEO_ID}" --user-agent "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-          AUDIO_FILE=$(ls temp_audio.* 2>/dev/null | head -n 1)
-          if [ -z "$AUDIO_FILE" ]; then
-            echo "Error: Audio download failed."
-            exit 1
-          fi
-          ffmpeg -i "$AUDIO_FILE" -b:a 320k -y "audio.mp3"
-          rm "$AUDIO_FILE"
-          ls -lh audio.mp3
+          SONG_NAME="${{ inputs.song_name }}"
+          
+          python << EOF
+          from pytube import YouTube
+          import os
+          import urllib.parse
 
-      - name: Commit and Push Audio
+          song_name = "${SONG_NAME}"
+          
+          # جستجو در یوتیوب
+          # ما از URL جستجوی یوتیوب استفاده می‌کنیم
+          search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(song_name)}"
+          
+          # نکته: pytube مستقیماً نمی‌تونه تو یوتیوب سرچ کنه، پس ما باید لینک ویدیو رو پیدا کنیم.
+          # برای سادگی، ما از یک ترفند استفاده می‌کنیم: جستجو در یوتیوب و گرفتن اولین نتیجه.
+          # اما pytube نیاز به URL ویدیو داره.
+          
+          # راه حل: استفاده از کتابخانه youtube-search-python برای جستجو
+          # اما چون نمی‌خوایم پکیج‌های زیاد نصب کنیم، از یک روش ساده‌تر استفاده می‌کنیم.
+          # ما از API عمومی یوتیوب استفاده نمی‌کنیم چون نیاز به کلید داره.
+          
+          # راه حل نهایی: استفاده از سرویس جستجوی عمومی یوتیوب
+          # ما از یک اسکریپت پایتون استفاده می‌کنیم که با BeautifulSoup صفحه جستجو رو پارس می‌کنه.
+          
+          import requests
+          from bs4 import BeautifulSoup
+          
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+          
+          search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(song_name)}"
+          
+          try:
+              response = requests.get(search_url, headers=headers)
+              soup = BeautifulSoup(response.text, 'html.parser')
+              
+              # پیدا کردن لینک ویدیو
+              video_links = soup.find_all('a', href=True)
+              video_id = None
+              
+              for link in video_links:
+                  href = link['href']
+                  if '/watch?v=' in href:
+                      video_id = href.split('v=')[1].split('&')[0]
+                      break
+              
+              if video_id:
+                  print(f"Found video ID: {video_id}")
+                  
+                  # دانلود ویدیو
+                  yt = YouTube(f"https://www.youtube.com/watch?v={video_id}")
+                  
+                  # گرفتن بهترین فایل صوتی
+                  audio_stream = yt.streams.filter(only_audio=True).first()
+                  
+                  if audio_stream:
+                      output_file = audio_stream.download()
+                      # تغییر نام فایل به audio.mp3
+                      os.rename(output_file, "audio.mp3")
+                      print("Download successful!")
+                  else:
+                      print("Error: No audio stream found.")
+                      exit(1)
+              else:
+                  print("Error: No video found.")
+                  exit(1)
+          except Exception as e:
+              print(f"Error: {e}")
+              exit(1)
+          EOF
+
+      - name: Commit and Push
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add audio.mp3
-          git commit -m "Added audio via yt-dlp Mobile UA for ID: ${{ inputs.video_id }}" || true
+          git commit -m "Added audio for: ${{ inputs.song_name }}" || true
           git push
