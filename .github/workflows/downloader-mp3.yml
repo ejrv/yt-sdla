@@ -23,25 +23,32 @@ jobs:
       - name: Download Audio
         run: |
           VIDEO_ID="${{ inputs.video_id }}"
-          INFO=$(curl -s "https://yewtu.be/api/v1/videos/${VIDEO_ID}")
-          AUDIO_URL=$(echo "$INFO" | jq -r '.adaptiveFormats[] | select(.mimeType | contains("audio")) | .url' | head -n 1)
-          if [ -z "$AUDIO_URL" ] || [ "$AUDIO_URL" == "null" ]; then
-            echo "Error: Could not find audio stream."
+          RESPONSE=$(curl -s -X POST "https://ttml.sh/api/v1/download" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\":\"https://www.youtube.com/watch?v=${VIDEO_ID}\",\"format\":\"audio\"}")
+          
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.downloadUrl // .url')
+          
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ]; then
+            echo "Error: Failed to get download link."
+            echo "$RESPONSE"
             exit 1
           fi
-          curl -L -o "temp_audio.m4a" "$AUDIO_URL"
-          if [ ! -f "temp_audio.m4a" ]; then
+          
+          curl -L -o "temp_audio.mp3" "$DOWNLOAD_URL"
+          
+          if [ ! -f "temp_audio.mp3" ]; then
             echo "Error: Download failed."
             exit 1
           fi
-          ffmpeg -i "temp_audio.m4a" -b:a 320k -y "audio.mp3"
-          rm "temp_audio.m4a"
-          ls -lh audio.mp3
+          
+          ls -lh temp_audio.mp3
 
       - name: Commit and Push Audio
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add audio.mp3
-          git commit -m "Added audio via Invidious for ID: ${{ inputs.video_id }}" || true
+          git add temp_audio.mp3
+          git mv temp_audio.mp3 audio.mp3
+          git commit -m "Added audio via TTML for ID: ${{ inputs.video_id }}" || true
           git push
