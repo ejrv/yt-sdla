@@ -1,0 +1,50 @@
+name: Search and List 10 Videos
+
+on:
+  workflow_dispatch:
+    inputs:
+      search_query:
+        description: 'What should I search?'
+        required: true
+        type: string
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install yt-dlp and jq
+        run: |
+          pip install yt-dlp
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Search and Extract Video Info
+        run: |
+          QUERY="${{ inputs.search_query }}"
+          
+      
+          yt-dlp --flat-playlist \
+                 --print "%(id)s %(title)s" \
+                 --max-downloaded 10 \
+                 "ytsearch10:${QUERY}" > video_list.txt
+
+          
+          if [ ! -s video_list.txt ]; then
+            echo "No videos found or error occurred."
+            exit 1
+          fi
+
+          
+          echo "Found videos:"
+          cat video_list.txt
+
+      - name: Commit and Push List
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add video_list.txt
+          git commit -m "Added video list for query: ${{ inputs.search_query }}" || true
+          git push
