@@ -1,0 +1,60 @@
+name: Download MP3 by ID (maxQ)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: 'ID?'
+        required: true
+        type: string
+
+jobs:
+  download_audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install yt-dlp and ffmpeg
+        run: |
+          pip install yt-dlp
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Download Best Audio (M4A)
+        run: |
+          VIDEO_ID="${{ inputs.video_id }}"
+          YOUTUBE_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
+          
+          echo "Downloading best quality audio..."
+          
+          
+          yt-dlp -x \
+                 --audio-format best \
+                 --audio-quality 0 \
+                 -o "temp_audio.%(ext)s" \
+                 "${YOUTUBE_URL}"
+
+          
+          AUDIO_FILE=$(ls temp_audio.* 2>/dev/null | head -n 1)
+          
+          if [ -z "$AUDIO_FILE" ]; then
+            echo "Error: Audio download failed."
+            exit 1
+          fi
+
+          
+          ffmpeg -i "$AUDIO_FILE" -b:a 320k -y "audio.mp3"
+          
+          
+          rm "$AUDIO_FILE"
+          
+          ls -lh audio.mp3
+
+      - name: Commit and Push Audio
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add audio.mp3
+          git commit -m "Added real MP3 audio for ID: ${{ inputs.video_id }}" || true
+          git push
