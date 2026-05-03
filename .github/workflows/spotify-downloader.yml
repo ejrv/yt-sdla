@@ -1,0 +1,81 @@
+name: Search & Download from Spotify (maxQ)
+
+on:
+  workflow_dispatch:
+    inputs:
+      song_name:
+        description: 'What are you looking for?'
+        required: true
+        type: string
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install requests
+
+      - name: Search and Download
+        run: |
+          SONG_NAME="${{ inputs.song_name }}"
+          
+          python << EOF
+          import requests
+          import json
+          import os
+          import urllib.parse
+
+          song_name = "${SONG_NAME}"
+          
+          
+          downloader_search_url = f"https://api.spotifydown.com/search?q={urllib.parse.quote(song_name)}"
+          
+          try:
+              response = requests.get(downloader_search_url)
+              data = response.json()
+              
+              if 'data' in data and len(data['data']) > 0:
+                  track = data['data'][0]
+                  track_id = track.get('id')
+                  
+                  if track_id:
+                      
+                      download_url = f"https://api.spotifydown.com/download/{track_id}/mp3"
+                      
+                      file_response = requests.get(download_url, stream=True)
+                      
+                      if file_response.status_code == 200:
+                          with open("audio.mp3", "wb") as f:
+                              for chunk in file_response.iter_content(chunk_size=8192):
+                                  f.write(chunk)
+                          print("Download successful!")
+                      else:
+                          print("Error: Failed to download file.")
+                          exit(1)
+                  else:
+                      print("Error: No track ID found.")
+                      exit(1)
+              else:
+                  print("Error: No tracks found in downloader.")
+                  exit(1)
+          except Exception as e:
+              print(f"Error: {e}")
+              exit(1)
+          EOF
+
+      - name: Commit and Push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add audio.mp3
+          git commit -m "Added audio for: ${{ inputs.song_name }}" || true
+          git push
