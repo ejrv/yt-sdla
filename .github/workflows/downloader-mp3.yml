@@ -15,23 +15,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
       - name: Install yt-dlp and ffmpeg
         run: |
           pip install yt-dlp
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Download Best Audio (M4A)
+      - name: Download Best Audio
         run: |
           VIDEO_ID="${{ inputs.video_id }}"
           YOUTUBE_URL="https://www.youtube.com/watch?v=${VIDEO_ID}"
           
           echo "Downloading best quality audio..."
           
-          
+         
           yt-dlp -x \
                  --audio-format best \
                  --audio-quality 0 \
+                 --extractor-args "player_client=android_vr" \
                  -o "temp_audio.%(ext)s" \
                  "${YOUTUBE_URL}"
 
