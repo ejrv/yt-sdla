@@ -1,4 +1,4 @@
-name: Download from Spotify
+name: (DEAD, WIP) Download from Spotify
 
 on:
   workflow_dispatch:
