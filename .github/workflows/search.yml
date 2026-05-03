@@ -1,10 +1,10 @@
-name: Search and List 10 Videos
+name: Search and List Videos (max-10)
 
 on:
   workflow_dispatch:
     inputs:
       search_query:
-        description: 'What should I search?'
+        description: 'What are you looking for?'
         required: true
         type: string
 
