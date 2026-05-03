@@ -1,4 +1,4 @@
-name: Search and Download from SoundCloud (maxQ)
+name: Search & Download from SoundCloud (maxQ)
 
 on:
   workflow_dispatch:
@@ -18,19 +18,25 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y yt-dlp ffmpeg
+          sudo apt-get install -y curl ffmpeg
 
       - name: Search and Download
         run: |
           SONG_NAME="${{ inputs.song_name }}"
-          yt-dlp -x --audio-format mp3 --audio-quality 0 -o "audio.%(ext)s" "scsearch:${SONG_NAME}"
-          AUDIO_FILE=$(ls audio.* 2>/dev/null | head -n 1)
-          if [ -z "$AUDIO_FILE" ]; then
+          SEARCH_URL="https://api.soundcloud.com/search/tracks?q=${SONG_NAME}&limit=1&linked_partitioning=1"
+          RESPONSE=$(curl -s "$SEARCH_URL")
+          DOWNLOAD_URL=$(echo "$RESPONSE" | grep -o '"http_nonblocking_url":"[^"]*"' | cut -d'"' -f4)
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL."
+            exit 1
+          fi
+          curl -L -o "audio.mp3" "$DOWNLOAD_URL"
+          if [ -f "audio.mp3" ]; then
+            ls -lh audio.mp3
+          else
             echo "Error: Download failed."
             exit 1
           fi
-          mv "$AUDIO_FILE" "audio.mp3"
-          ls -lh audio.mp3
 
       - name: Commit and Push
         run: |
