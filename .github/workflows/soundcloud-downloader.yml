@@ -15,28 +15,58 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
       - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl ffmpeg
+          pip install requests
 
       - name: Search and Download
         run: |
           SONG_NAME="${{ inputs.song_name }}"
-          SEARCH_URL="https://api.soundcloud.com/search/tracks?q=${SONG_NAME}&limit=1&linked_partitioning=1"
-          RESPONSE=$(curl -s "$SEARCH_URL")
-          DOWNLOAD_URL=$(echo "$RESPONSE" | grep -o '"http_nonblocking_url":"[^"]*"' | cut -d'"' -f4)
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Error: Could not find download URL."
-            exit 1
-          fi
-          curl -L -o "audio.mp3" "$DOWNLOAD_URL"
-          if [ -f "audio.mp3" ]; then
-            ls -lh audio.mp3
-          else
-            echo "Error: Download failed."
-            exit 1
-          fi
+          
+          python << EOF
+          import requests
+          import json
+          import os
+
+          song_name = "${SONG_NAME}"
+          
+          
+          url = "https://api.soundcloud.com/search/tracks"
+          params = {
+              "q": song_name,
+              "limit": 1,
+              "linked_partitioning": 1
+          }
+          
+          response = requests.get(url, params=params)
+          data = response.json()
+          
+          if "collection" in data and len(data["collection"]) > 0:
+              track = data["collection"][0]
+              if "http_nonblocking_url" in track:
+                  download_url = track["http_nonblocking_url"]
+                  
+                  
+                  file_response = requests.get(download_url)
+                  if file_response.status_code == 200:
+                      with open("audio.mp3", "wb") as f:
+                          f.write(file_response.content)
+                      print("Download successful!")
+                  else:
+                      print("Error: Failed to download file.")
+                      exit(1)
+              else:
+                  print("Error: No download URL found.")
+                  exit(1)
+          else:
+              print("Error: No tracks found.")
+              exit(1)
+          EOF
 
       - name: Commit and Push
         run: |
