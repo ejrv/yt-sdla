@@ -1,0 +1,41 @@
+name: Search and Download from SoundCloud (maxQ)
+
+on:
+  workflow_dispatch:
+    inputs:
+      song_name:
+        description: 'What are you looking for?'
+        required: true
+        type: string
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yt-dlp ffmpeg
+
+      - name: Search and Download
+        run: |
+          SONG_NAME="${{ inputs.song_name }}"
+          yt-dlp -x --audio-format mp3 --audio-quality 0 -o "audio.%(ext)s" "scsearch:${SONG_NAME}"
+          AUDIO_FILE=$(ls audio.* 2>/dev/null | head -n 1)
+          if [ -z "$AUDIO_FILE" ]; then
+            echo "Error: Download failed."
+            exit 1
+          fi
+          mv "$AUDIO_FILE" "audio.mp3"
+          ls -lh audio.mp3
+
+      - name: Commit and Push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add audio.mp3
+          git commit -m "Added audio for: ${{ inputs.song_name }}" || true
+          git push
