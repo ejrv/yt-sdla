@@ -34,10 +34,10 @@ jobs:
           echo "Downloading best quality audio..."
           
          
-          yt-dlp -x \
+           yt-dlp -x \
                  --audio-format best \
                  --audio-quality 0 \
-                 --extractor-args "player_client=android_vr" \
+                 --extractor-args "youtube:player_client=android_vr" \
                  -o "temp_audio.%(ext)s" \
                  "${YOUTUBE_URL}"
 
